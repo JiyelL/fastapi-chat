@@ -10,7 +10,7 @@ fastapi==0.102.0
 filelock==3.12.2
 Flask==2.0,<2.4
 Flask-RESTful==0.3.10
-fsspec==2023.6.0
+fsspec==2023.1.0
 gunicorn==21.2.0
 h11==0.14.0
 hugchat==0.2.0
