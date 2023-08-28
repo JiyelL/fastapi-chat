@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from hugchat import hugchat
 from hugchat.login import Login
 from fastapi.middleware.cors import CORSMiddleware
+import tempfile
+import os
 
 app = FastAPI()
 
@@ -25,19 +27,20 @@ app.add_middleware(
 class Message(BaseModel):
     message: str
 
+# Log in to huggingface and grant authorization to huggingchat
 sign = Login("gsarmiento0798@gmail.com", "Blankshounen_30")
 cookies = sign.login()
 
-# Save cookies to the local directory
-cookie_path_dir = "./cookies_snapshot"
-sign.saveCookiesToDir(cookie_path_dir)
+# Create a temporary directory to store cookies
+with tempfile.TemporaryDirectory() as temp_dir:
+    cookie_path = os.path.join(temp_dir, "cookies.json")
+    sign.saveCookiesToDir(cookie_path)
+
+# Create a ChatBot
+chatbot = hugchat.ChatBot(cookies=cookies.get_dict())
 
 @app.put("/message")
 async def update_message(message: Message):
-    # Log in to huggingface and grant authorization to huggingchat
-
-    # Create a ChatBot
-    chatbot = hugchat.ChatBot(cookies=cookies.get_dict())
 
     # Get a response from the chatbot
     response = chatbot.chat(message.message)
