@@ -1,8 +1,11 @@
+from typing import List, Dict, Any
 from fastapi import FastAPI
 from pydantic import BaseModel
 from hugchat import hugchat
 from hugchat.login import Login
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+import csv
 import tempfile
 import os
 
@@ -46,3 +49,15 @@ async def update_message(message: Message):
     response = chatbot.chat(message.message)
 
     return {"response": response}
+
+@app.put("/create_csv/")
+async def create_csv(data: List[Dict[str, Any]]):
+    # Create a list of dictionaries from the data
+    data_list = [dict(row) for row in data]
+    # Create a temporary CSV file
+    with open('temp.csv', mode='w', newline='') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=data_list[0].keys())
+        writer.writeheader()
+        writer.writerows(data_list)
+    # Return the CSV file as a downloadable response
+    return FileResponse('temp.csv', media_type='text/csv', filename='data.csv', headers={'Content-Disposition': 'attachment; filename=data.csv'})
