@@ -67,7 +67,7 @@ async def update_message(message: Message):
 
 @app.post("/users/")
 async def create_user(user: User):
-    user_id = hash(user.username)
+    user_id = str(hash(user.username))
     user_dir = f"./users/{user_id}"
     if os.path.exists(user_dir):
         raise HTTPException(status_code=400, detail="existing username error")
@@ -80,7 +80,7 @@ async def create_user(user: User):
         return {"user_id": user_id}
 
 @app.post("/users/{user_id}/soil_data/")
-async def create_soil_data(user_id: int, soil_data: SoilData):
+async def create_soil_data(user_id: str, soil_data: SoilData):
     user_dir = f"./users/{user_id}"
     if not os.path.exists(user_dir):
         raise HTTPException(status_code=404, detail="user not found")
@@ -93,7 +93,7 @@ async def create_soil_data(user_id: int, soil_data: SoilData):
 
 
 @app.get("/users/{user_id}/soil_data/")
-async def get_soil_data(user_id: int):
+async def get_soil_data(user_id: str):
     user_dir = f"./users/{user_id}"
     if not os.path.exists(user_dir):
         raise HTTPException(status_code=404, detail="user not found")
