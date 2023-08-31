@@ -36,6 +36,15 @@ class User(BaseModel):
 class SoilData(BaseModel):
     date_time: str
     soil_name: str
+    nitrogen: float
+    phosphorus: float
+    potassium: float
+    moisture: int
+    temperature: float
+
+class SoilRecommends(BaseModel):
+    date_time: str
+    soil_name: str
     crop_name: str
     soil_area: float
     nitrogen: float
@@ -74,8 +83,12 @@ async def create_user(user: User):
     else:
         os.makedirs(user_dir)
         with open(f"{user_dir}/soil_data.csv", mode='w') as soil_data_file:
-            fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
+            fieldnames = ['date_time', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'moisture', 'temperature']
             writer = csv.DictWriter(soil_data_file, fieldnames=fieldnames)
+            writer.writeheader()
+        with open(f"{user_dir}/soil_recommends.csv", mode='w') as soil_recommends_file:
+            fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
+            writer = csv.DictWriter(soil_recommends_file, fieldnames=fieldnames)
             writer.writeheader()
         return {"user_id": user_id}
 
@@ -86,11 +99,10 @@ async def create_soil_data(user_id: str, soil_data: SoilData):
         raise HTTPException(status_code=404, detail="user not found")
     else:
         with open(f"{user_dir}/soil_data.csv", mode='a') as soil_data_file:
-            fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
+            fieldnames = ['date_time', 'soil_name', 'nitrogen', 'phosphorus', 'potassium', 'moisture', 'temperature']
             writer = csv.DictWriter(soil_data_file, fieldnames=fieldnames)
             writer.writerow(soil_data.dict())
         return {"message": "soil data saved successfully"}
-
 
 @app.get("/users/{user_id}/soil_data/")
 async def get_soil_data(user_id: str):
@@ -103,3 +115,27 @@ async def get_soil_data(user_id: str):
             raise HTTPException(status_code=404, detail="soil data not found")
         else:
             return FileResponse(file_path, media_type="text/csv", filename="soil_data.csv")
+        
+@app.post("/users/{user_id}/soil_recommends/")
+async def create_soil_recommends(user_id: str, soil_recommends: SoilRecommends):
+    user_dir = f"./users/{user_id}"
+    if not os.path.exists(user_dir):
+        raise HTTPException(status_code=404, detail="user not found")
+    else:
+        with open(f"{user_dir}/soil_recommends.csv", mode='a') as soil_recommends_file:
+            fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
+            writer = csv.DictWriter(soil_recommends_file, fieldnames=fieldnames)
+            writer.writerow(soil_recommends.dict())
+        return {"message": "soil data saved successfully"}
+    
+@app.get("/users/{user_id}/soil_recommends/")
+async def get_soil_data(user_id: str):
+    user_dir = f"./users/{user_id}"
+    if not os.path.exists(user_dir):
+        raise HTTPException(status_code=404, detail="user not found")
+    else:
+        file_path = f"{user_dir}/soil_recommends.csv"
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="soil data not found")
+        else:
+            return FileResponse(file_path, media_type="text/csv", filename="soil_recommends.csv")
