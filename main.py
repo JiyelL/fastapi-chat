@@ -5,6 +5,7 @@ from hugchat import hugchat
 from hugchat.login import Login
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from passlib.hash import bcrypt
 import csv
 import tempfile
 import os
@@ -32,6 +33,7 @@ class Message(BaseModel):
 
 class User(BaseModel):
     username: str
+    password: str
 
 class SoilData(BaseModel):
     date_time: str
@@ -90,7 +92,25 @@ async def create_user(user: User):
             fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
             writer = csv.DictWriter(soil_recommends_file, fieldnames=fieldnames)
             writer.writeheader()
-        return {"user_id": user_id}
+        hashed_password = bcrypt.hash(user.password)
+        with open(f"{user_dir}/password.txt", mode='w') as password_file:
+            password_file.write(hashed_password)
+        return {"username": user.username, "user_id": user_id}
+    
+@app.post("/login/")
+async def login(username: str, password: str):
+    user_id = str(hash(username))
+    user_dir = f"./users/{user_id}"
+    if not os.path.exists(user_dir):
+        raise HTTPException(status_code=404, detail="user not found")
+    else:
+        with open(f"{user_dir}/password.txt", mode='r') as password_file:
+            hashed_password = password_file.read().strip()
+        hashed_input_password = bcrypt.hash(password)
+        if bcrypt.verify(hashed_input_password, hashed_password):
+            return {"username": username, "user_id": user_id}
+        else:
+            raise HTTPException(status_code=401, detail="incorrect password")
 
 @app.post("/users/{user_id}/soil_data/")
 async def create_soil_data(user_id: str, soil_data: SoilData):
