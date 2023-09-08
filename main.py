@@ -106,8 +106,7 @@ async def login(username: str, password: str):
     else:
         with open(f"{user_dir}/password.txt", mode='r') as password_file:
             hashed_password = password_file.read().strip()
-        hashed_input_password = bcrypt.hash(password)
-        if bcrypt.verify(hashed_input_password, hashed_password):
+        if bcrypt.verify(password, hashed_password):
             return {"username": username, "user_id": user_id}
         else:
             raise HTTPException(status_code=401, detail="incorrect password")
