@@ -135,6 +135,24 @@ async def get_soil_data(user_id: str):
         else:
             return FileResponse(file_path, media_type="text/csv", filename="soil_data.csv")
         
+@app.get("/users/{user_id}/data_retrieve/")
+async def get_soil_data(user_id: str):
+    user_dir = f"./users/{user_id}"
+    if not os.path.exists(user_dir):
+        raise HTTPException(status_code=404, detail="user not found")
+    else:
+        file_path = f"{user_dir}/soil_data.csv"
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="soil data not found")
+        else:
+            with open(file_path, mode='r') as soil_recommends_file:
+                reader = csv.DictReader(soil_recommends_file)
+                data = [row for row in reader]
+            if not data:
+                return {"message": "no data available"}
+            else:
+                return {"data": data}
+        
 @app.post("/users/{user_id}/soil_recommends/")
 async def create_soil_recommends(user_id: str, soil_recommends: SoilRecommends):
     user_dir = f"./users/{user_id}"
@@ -158,3 +176,21 @@ async def get_soil_data(user_id: str):
             raise HTTPException(status_code=404, detail="soil data not found")
         else:
             return FileResponse(file_path, media_type="text/csv", filename="soil_recommends.csv")
+        
+@app.get("/users/{user_id}/recommends_retrieve/")
+async def get_soil_data(user_id: str):
+    user_dir = f"./users/{user_id}"
+    if not os.path.exists(user_dir):
+        raise HTTPException(status_code=404, detail="user not found")
+    else:
+        file_path = f"{user_dir}/soil_recommends.csv"
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="soil data not found")
+        else:
+            with open(file_path, mode='r') as soil_recommends_file:
+                reader = csv.DictReader(soil_recommends_file)
+                data = [row for row in reader]
+            if not data:
+                return {"message": "no data available"}
+            else:
+                return {"data": data}

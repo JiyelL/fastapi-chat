@@ -1,0 +1,6 @@
+date_time,soil_area,nitrogen,phosphorus,potassium,moisture,temperature
+string,string,0.0,0.0,0.0,0,0.0
+string,string,0.0,0.0,0.0,0,0.0
+string,string,0.0,0.0,0.0,0,0.0
+string1,string1,1.0,1.0,1.0,1,1.0
+string12,string12,12.0,12.0,12.0,12,12.0
