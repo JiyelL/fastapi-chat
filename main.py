@@ -6,12 +6,22 @@ from hugchat.login import Login
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from passlib.hash import bcrypt
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 import csv
 import tempfile
+import os
+import uuid
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 import os
 
 app = FastAPI()
 
+# Add CORS middleware
 origins = [
     "http://localhost.tiangolo.com",
     "https://localhost.tiangolo.com",
@@ -28,31 +38,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Connect to the Neon database
+DATABASE_URL = os.environ.get('postgres://JiyelL:X6Iuq1bgQySs@ep-plain-flower-54000100.ap-southeast-1.aws.neon.tech/neondb')
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Define your data models
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
+    user_id = Column(String, unique=True, index=True)
+
+class SoilData(Base):
+    __tablename__ = "soil_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    date_time = Column(String, index=True)
+    soil_name = Column(String, index=True)
+    nitrogen = Column(Float)
+    phosphorus = Column(Float)
+    potassium = Column(Float)
+    moisture = Column(Integer)
+    temperature = Column(Float)
+
+class SoilRecommends(Base):
+    __tablename__ = "soil_recommends"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    date_time = Column(String, index=True)
+    soil_name = Column(String, index=True)
+    crop_name = Column(String, index=True)
+    soil_area = Column(Float)
+    nitrogen = Column(Float)
+    phosphorus = Column(Float)
+    potassium = Column(Float)
+    recommendations = Column(String)
+    
 class Message(BaseModel):
     message: str
-
-class User(BaseModel):
-    username: str
-    password: str
-
-class SoilData(BaseModel):
-    date_time: str
-    soil_name: str
-    nitrogen: float
-    phosphorus: float
-    potassium: float
-    moisture: int
-    temperature: float
-
-class SoilRecommends(BaseModel):
-    date_time: str
-    soil_name: str
-    crop_name: str
-    soil_area: float
-    nitrogen: float
-    phosphorus: float
-    potassium: float
-    recommendations: str
 
 # Log in to huggingface and grant authorization to huggingchat
 sign = Login("gsarmiento0798@gmail.com", "Blankshounen_30")
@@ -75,122 +105,110 @@ async def update_message(message: Message):
 
     return {"response": response}
 
-
+# Define your endpoints
 @app.post("/users/")
 async def create_user(user: User):
-    user_id = str(hash(user.username))
-    user_dir = f"./users/{user_id}"
-    if os.path.exists(user_dir):
+    db = SessionLocal()
+    existing_user = db.query(User).filter(User.username == user.username).first()
+    if existing_user:
         raise HTTPException(status_code=400, detail="existing username error")
     else:
-        os.makedirs(user_dir)
-        with open(f"{user_dir}/soil_data.csv", mode='w') as soil_data_file:
-            fieldnames = ['date_time', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'moisture', 'temperature']
-            writer = csv.DictWriter(soil_data_file, fieldnames=fieldnames)
-            writer.writeheader()
-        with open(f"{user_dir}/soil_recommends.csv", mode='w') as soil_recommends_file:
-            fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
-            writer = csv.DictWriter(soil_recommends_file, fieldnames=fieldnames)
-            writer.writeheader()
-        hashed_password = bcrypt.hash(user.password)
-        with open(f"{user_dir}/password.txt", mode='w') as password_file:
-            password_file.write(hashed_password)
-        return {"username": user.username, "user_id": user_id}
-    
+        user.user_id = str(uuid.uuid4())
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return {"username": user.username, "user_id": user.user_id}
+
 @app.post("/login/")
 async def login(username: str, password: str):
-    user_id = str(hash(username))
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
     else:
-        with open(f"{user_dir}/password.txt", mode='r') as password_file:
-            hashed_password = password_file.read().strip()
-        if bcrypt.verify(password, hashed_password):
-            return {"username": username, "user_id": user_id}
+        if bcrypt.verify(password, user.password):
+            return {"username": user.username, "user_id": user.user_id}
         else:
             raise HTTPException(status_code=401, detail="incorrect password")
 
 @app.post("/users/{user_id}/soil_data/")
 async def create_soil_data(user_id: str, soil_data: SoilData):
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
+    db = SessionLocal()
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
     else:
-        with open(f"{user_dir}/soil_data.csv", mode='a') as soil_data_file:
-            fieldnames = ['date_time', 'soil_name', 'nitrogen', 'phosphorus', 'potassium', 'moisture', 'temperature']
-            writer = csv.DictWriter(soil_data_file, fieldnames=fieldnames)
-            writer.writerow(soil_data.dict())
+        soil_data.user_id = user_id
+        db.add(soil_data)
+        db.commit()
+        db.refresh(soil_data)
         return {"message": "soil data saved successfully"}
 
 @app.get("/users/{user_id}/soil_data/")
 async def get_soil_data(user_id: str):
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
+    db = SessionLocal()
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
     else:
-        file_path = f"{user_dir}/soil_data.csv"
-        if not os.path.exists(file_path):
+        soil_data = db.query(SoilData).filter(SoilData.user_id == user_id).all()
+        if not soil_data:
             raise HTTPException(status_code=404, detail="soil data not found")
         else:
-            return FileResponse(file_path, media_type="text/csv", filename="soil_data.csv")
-        
-@app.get("/users/{user_id}/data_retrieve/")
-async def get_soil_data(user_id: str):
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
-        raise HTTPException(status_code=404, detail="user not found")
-    else:
-        file_path = f"{user_dir}/soil_data.csv"
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="soil data not found")
-        else:
-            with open(file_path, mode='r') as soil_recommends_file:
-                reader = csv.DictReader(soil_recommends_file)
-                data = [row for row in reader]
-            if not data:
-                return {"message": "no data available"}
-            else:
-                return {"data": data}
-        
+            soil_data_dict = [data.__dict__ for data in soil_data]
+            soil_data_dict = [{key: value for key, value in data.items() if not key.startswith("_")} for data in soil_data_dict]
+            with open('soil_data.csv', mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=soil_data_dict[0].keys())
+                writer.writeheader()
+                for data in soil_data_dict:
+                    writer.writerow(data)
+            return FileResponse('soil_data.csv', media_type='text/csv', filename='soil_data.csv')
+
 @app.post("/users/{user_id}/soil_recommends/")
 async def create_soil_recommends(user_id: str, soil_recommends: SoilRecommends):
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
+    db = SessionLocal()
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
     else:
-        with open(f"{user_dir}/soil_recommends.csv", mode='a') as soil_recommends_file:
-            fieldnames = ['date_time', 'soil_name', 'crop_name', 'soil_area', 'nitrogen', 'phosphorus', 'potassium', 'recommendations']
-            writer = csv.DictWriter(soil_recommends_file, fieldnames=fieldnames)
-            writer.writerow(soil_recommends.dict())
-        return {"message": "soil data saved successfully"}
-    
+        soil_recommends.user_id = user_id
+        db.add(soil_recommends)
+        db.commit()
+        db.refresh(soil_recommends)
+        return {"message": "soil recommends saved successfully"}
+
 @app.get("/users/{user_id}/soil_recommends/")
-async def get_soil_data(user_id: str):
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
+async def get_soil_recommends(user_id: str):
+    db = SessionLocal()
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
     else:
-        file_path = f"{user_dir}/soil_recommends.csv"
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="soil data not found")
+        soil_recommends = db.query(SoilRecommends).filter(SoilRecommends.user_id == user_id).all()
+        if not soil_recommends:
+            raise HTTPException(status_code=404, detail="soil recommends not found")
         else:
-            return FileResponse(file_path, media_type="text/csv", filename="soil_recommends.csv")
-        
-@app.get("/users/{user_id}/recommends_retrieve/")
-async def get_soil_data(user_id: str):
-    user_dir = f"./users/{user_id}"
-    if not os.path.exists(user_dir):
+            soil_recommends_dict = [data.__dict__ for data in soil_recommends]
+            soil_recommends_dict = [{key: value for key, value in data.items() if not key.startswith("_")} for data in soil_recommends_dict]
+            return {"data": soil_recommends_dict}
+
+@app.get("/users/{user_id}/soil_recommends/")
+async def get_soil_recommends(user_id: str):
+    db = SessionLocal()
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
     else:
-        file_path = f"{user_dir}/soil_recommends.csv"
-        if not os.path.exists(file_path):
+        soil_recommends = db.query(SoilRecommends).filter(SoilRecommends.user_id == user_id).all()
+        if not soil_recommends:
             raise HTTPException(status_code=404, detail="soil data not found")
         else:
-            with open(file_path, mode='r') as soil_recommends_file:
-                reader = csv.DictReader(soil_recommends_file)
-                data = [row for row in reader]
-            if not data:
-                return {"message": "no data available"}
-            else:
-                return {"data": data}
+            soil_data_dict = [data.__dict__ for data in soil_recommends]
+            soil_data_dict = [{key: value for key, value in data.items() if not key.startswith("_")} for data in soil_data_dict]
+            with open('soil_data.csv', mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=soil_data_dict[0].keys())
+                writer.writeheader()
+                for data in soil_data_dict:
+                    writer.writerow(data)
+            return FileResponse('soil_data.csv', media_type='text/csv', filename='soil_recomends.csv')
+
