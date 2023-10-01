@@ -13,6 +13,7 @@ import csv
 import tempfile
 import os
 import uuid
+import psycopg2
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,14 +40,15 @@ app.add_middleware(
 )
 
 # Connect to the Neon database
-DATABASE_URL = os.environ.get('postgres://JiyelL:X6Iuq1bgQySs@ep-plain-flower-54000100.ap-southeast-1.aws.neon.tech/neondb')
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = "postgresql://JiyelL:X6Iuq1bgQySs@ep-plain-flower-54000100.ap-southeast-1.aws.neon.tech/neondb"
+conn = psycopg2.connect(DATABASE_URL)
+engine = create_engine(DATABASE_URL, creator=lambda: conn)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Define your data models
 Base = declarative_base()
 
-class User(Base):
+class User(BaseModel):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -106,7 +108,7 @@ async def update_message(message: Message):
     return {"response": response}
 
 # Define your endpoints
-@app.post("/users/")
+@app.post("/users/", response_model=User)
 async def create_user(user: User):
     db = SessionLocal()
     existing_user = db.query(User).filter(User.username == user.username).first()
