@@ -16,7 +16,6 @@ import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
 
 app = FastAPI()
 
@@ -36,8 +35,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = os.environ.get('postgres://JiyelL:X6Iuq1bgQySs@ep-plain-flower-54000100.ap-southeast-1.aws.neon.tech/neondb')
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = 'postgresql://JiyelL:X6Iuq1bgQySs@ep-plain-flower-54000100.ap-southeast-1.aws.neon.tech/neondb'
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
