@@ -35,7 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = 'postgresql://JiyelL:X6Iuq1bgQySs@ep-plain-flower-54000100.ap-southeast-1.aws.neon.tech/neondb'
+
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
